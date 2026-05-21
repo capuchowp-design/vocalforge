@@ -1,0 +1,29 @@
+{
+  "name": "VocalForge Basso Trainer",
+  "short_name": "VocalForge",
+  "description": "Treino vocal para basso profundo com cronômetro e exercícios guiados.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#020817",
+  "background_color": "#020817",
+  "categories": [
+    "health",
+    "music"
+  ],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
