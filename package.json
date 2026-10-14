@@ -1,0 +1,13 @@
+{
+  "name": "vocalforge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VocalForge - treino vocal para basso profundo",
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}
