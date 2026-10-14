@@ -1,0 +1,102 @@
+name: Gerar APK assinado
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Conferir os 3 Secrets
+        run: |
+          ok=1
+          for v in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS; do
+            if [ -z "${!v}" ]; then echo "::error::Falta o Secret $v (Settings > Secrets and variables > Actions)"; ok=0; fi
+          done
+          [ "$ok" = "1" ] || exit 1
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: |
+          npm install --no-audit --no-fund
+          python -m pip install pillow
+
+      - name: Montar o app (www)
+        run: python scripts/prepare_web.py
+
+      - name: Criar o projeto Android
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Ajustar versão, ícones e tela de abertura
+        run: python scripts/android_setup.py
+
+      - name: Compilar (release)
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Alinhar e assinar com a sua chave
+        run: |
+          set -e
+          source version.txt
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "Build-tools: $BT"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          UNSIGNED=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          OUT="VocalForge-${VERSION_NAME}-${VERSION_CODE}.apk"
+          "$BT/zipalign" -p -f 4 "$UNSIGNED" aligned.apk
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.keystore" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD --out "$OUT" aligned.apk
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee sign-report.txt
+          echo "---- Impressão digital (SHA-256) da chave no arquivo da chave ----" | tee -a sign-report.txt
+          keytool -list -v -keystore "$RUNNER_TEMP/release.keystore" -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep -E "SHA256|SHA-256" | tee -a sign-report.txt
+          echo "---- Pacote ----" | tee -a sign-report.txt
+          "$BT/aapt" dump badging "$OUT" | grep -E "^package:|sdkVersion|targetSdkVersion|uses-permission" | tee -a sign-report.txt || true
+          rm -f "$RUNNER_TEMP/release.keystore" aligned.apk
+          echo "APK_FILE=$OUT" >> "$GITHUB_ENV"
+
+      - name: Guardar o APK (aba Actions > Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: VocalForge-apk
+          path: |
+            VocalForge-*.apk
+            sign-report.txt
+          retention-days: 30
+
+      - name: Criar rascunho de Release com o APK (download direto no celular)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source version.txt
+          gh release create "apk-${VERSION_NAME}-build${GITHUB_RUN_NUMBER}" "$APK_FILE" sign-report.txt \
+            --draft --title "VocalForge ${VERSION_NAME} (build ${GITHUB_RUN_NUMBER})" \
+            --notes "APK assinado. Confira sign-report.txt."
