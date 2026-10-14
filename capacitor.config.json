@@ -1,0 +1,12 @@
+{
+  "appId": "io.github.capuchowp.vocalforge",
+  "appName": "VocalForge",
+  "webDir": "www",
+  "backgroundColor": "#020817",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "adjustMarginsForEdgeToEdge": "force"
+  }
+}
