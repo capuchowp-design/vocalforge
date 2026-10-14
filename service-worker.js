@@ -1,5 +1,5 @@
 // VocalForge Service Worker — enables offline use and PWA install
-const CACHE_NAME = "vocalforge-v1";
+const CACHE_NAME = "vocalforge-v3";
 const FILES_TO_CACHE = [
   "./index.html",
   "./manifest.json",
